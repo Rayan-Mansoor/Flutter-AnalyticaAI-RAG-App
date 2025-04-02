@@ -28,8 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         isLoading = false;
       });
-      if (response != null && response['access_token'] != null) {
-        await AuthService.saveToken(response['access_token']);
+      if (response) {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

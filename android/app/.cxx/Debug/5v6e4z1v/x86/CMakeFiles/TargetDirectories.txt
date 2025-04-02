@@ -1,0 +1,2 @@
+C:/Programming/Flutter Projects/Flutter-AnalyticaAI-RAG-App/android/app/.cxx/Debug/5v6e4z1v/x86/CMakeFiles/edit_cache.dir
+C:/Programming/Flutter Projects/Flutter-AnalyticaAI-RAG-App/android/app/.cxx/Debug/5v6e4z1v/x86/CMakeFiles/rebuild_cache.dir

@@ -41,6 +41,10 @@ dependencies:
   flutter_html: ^3.0.0
   printing: ^5.14.2
   pdf: ^3.11.3
+  shimmer: ^3.0.0
+  jwt_decoder: ^2.0.1
+  shared_preferences: ^2.5.3
+  file_picker: ^10.0.0
 
 dev_dependencies:
   flutter_test:
