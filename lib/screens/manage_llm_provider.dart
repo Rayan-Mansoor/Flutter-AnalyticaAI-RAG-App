@@ -13,13 +13,46 @@ class _ManageLLMProviderScreenState extends State<ManageLLMProviderScreen> {
   String _selectedProvider = 'GROQ';
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _hostController = TextEditingController();
+  final TextEditingController _modelController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLLMConfig();
+  }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
     _hostController.dispose();
+    _modelController.dispose();
     super.dispose();
+  }
+
+  // Fetch the current LLM configuration from the backend.
+  Future<void> _loadLLMConfig() async {
+    final response = await AuthService.getLLMApiKey();
+    if (response != null && response['status'] == 'success') {
+      final data = response['data'];
+      setState(() {
+        _selectedProvider = data['provider'] ?? 'GROQ';
+        _modelController.text = data['model'] ?? '';
+        // If provider is OLLAMA, use host; otherwise use API key.
+        if (_selectedProvider == 'OLLAMA') {
+          _hostController.text = data['config']?['host'] ?? '';
+        } else {
+          _apiKeyController.text = data['config']?['api_key'] ?? '';
+        }
+      });
+    } else {
+      // Handle error or leave default values
+      print("Failed to load LLM config");
+    }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _submit() async {
@@ -28,12 +61,10 @@ class _ManageLLMProviderScreenState extends State<ManageLLMProviderScreen> {
         _isSubmitting = true;
       });
 
-      // Build the payload using the provided values.
+      // Build the payload with the provider, model, and credentials.
       Map<String, dynamic> payload = {
         'provider': _selectedProvider,
-        'gemini_model': 'gemini-2.0-flash',
-        'groq_model': 'llama-3.3-70b-versatile',
-        'ollama_model': 'gemma3:1b',
+        'model': _modelController.text.trim(),
       };
 
       if (_selectedProvider == 'OLLAMA') {
@@ -67,68 +98,85 @@ class _ManageLLMProviderScreenState extends State<ManageLLMProviderScreen> {
       appBar: AppBar(
         title: const Text('Manage LLM Provider'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              DropdownButtonFormField<String>(
-                value: _selectedProvider,
-                decoration: const InputDecoration(
-                  labelText: 'Select LLM Provider',
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: _selectedProvider,
+                      decoration: const InputDecoration(
+                        labelText: 'Select LLM Provider',
+                      ),
+                      items: <String>['GROQ', 'OLLAMA', 'GEMINI'].map((String provider) {
+                        return DropdownMenuItem<String>(
+                          value: provider,
+                          child: Text(provider),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedProvider = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Model field for specifying the model.
+                    TextFormField(
+                      controller: _modelController,
+                      decoration: const InputDecoration(
+                        labelText: 'Model (e.g., llama-3.3-70b-versatile)',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter the model name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _selectedProvider == 'OLLAMA'
+                        ? TextFormField(
+                            controller: _hostController,
+                            decoration: const InputDecoration(
+                              labelText: 'Host (e.g., http://localhost:11434)',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter the host URL';
+                              }
+                              return null;
+                            },
+                          )
+                        : TextFormField(
+                            controller: _apiKeyController,
+                            decoration: const InputDecoration(
+                              labelText: 'API Key',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter the API key';
+                              }
+                              return null;
+                            },
+                          ),
+                    const SizedBox(height: 24),
+                    _isSubmitting
+                        ? const CircularProgressIndicator()
+                        : ElevatedButton(
+                            onPressed: _submit,
+                            child: const Text('Save'),
+                          ),
+                  ],
                 ),
-                items: <String>['GROQ', 'OLLAMA', 'GEMINI'].map((String provider) {
-                  return DropdownMenuItem<String>(
-                    value: provider,
-                    child: Text(provider),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedProvider = value!;
-                  });
-                },
               ),
-              const SizedBox(height: 16),
-              _selectedProvider == 'OLLAMA'
-                  ? TextFormField(
-                      controller: _hostController,
-                      decoration: const InputDecoration(
-                        labelText: 'Host (e.g., http://localhost:11434)',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter the host URL';
-                        }
-                        return null;
-                      },
-                    )
-                  : TextFormField(
-                      controller: _apiKeyController,
-                      decoration: const InputDecoration(
-                        labelText: 'API Key',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter the API key';
-                        }
-                        return null;
-                      },
-                    ),
-              const SizedBox(height: 24),
-              _isSubmitting
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _submit,
-                      child: const Text('Save'),
-                    ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

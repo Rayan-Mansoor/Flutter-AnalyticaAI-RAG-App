@@ -5,6 +5,7 @@ import 'package:analytica_ai/screens/manage_users_screen.dart';
 import 'package:analytica_ai/screens/manage_webpages.dart';
 import 'package:flutter/material.dart';
 
+
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({Key? key}) : super(key: key);
 

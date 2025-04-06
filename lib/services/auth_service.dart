@@ -8,7 +8,6 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 
-
 class ApiClient extends http.BaseClient {
   final http.Client _inner;
   final String _apiKey;
@@ -16,18 +15,34 @@ class ApiClient extends http.BaseClient {
   ApiClient(this._apiKey, [http.Client? client])
       : _inner = client ?? http.Client();
 
+  bool _shouldSkipAuth(Uri url) {
+    return url.path.contains('/login') || url.path.contains('/register');
+  }
+
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    // Add the API key to all requests
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    // Add the API key to all requests.
     request.headers['X-API-Key'] = _apiKey;
     
-    if (request is! http.MultipartRequest && !request.headers.containsKey('Content-Type')) {
+    // For non-multipart requests, always set Content-Type to application/json.
+    if (request is! http.MultipartRequest) {
       request.headers['Content-Type'] = 'application/json';
+    }
+
+    // If the endpoint is not exempt and no Authorization header exists,
+    // inject the bearer token.
+    if (!_shouldSkipAuth(request.url)) {
+      final token = await AuthService.getToken();
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
     }
     
     return _inner.send(request);
   }
+
 }
+
 
 class AuthService {
   static final _storage = FlutterSecureStorage();
@@ -114,7 +129,7 @@ class AuthService {
     try {
       final response = await _client.post(
         url,
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({'email': email, 'password': password})
       );
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
@@ -172,10 +187,7 @@ class AuthService {
     if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get-conversations');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         // Assuming the API returns a JSON array of conversation objects.
         List<dynamic> conversations = jsonDecode(response.body);
@@ -191,15 +203,12 @@ class AuthService {
   }
 
   static Future<Map<String, dynamic>?> query(String text, {String? sessionId}) async {
-    final token = await getToken();
-    if (token == null) return null;
     final endpoint = sessionId != null ? '/query/$sessionId' : '/query';
     final url = Uri.parse('$_baseUrl$endpoint');
     try {
       final body = jsonEncode({'text': text});
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: body,
       );
       if (response.statusCode == 200) {
@@ -215,14 +224,9 @@ class AuthService {
   }
 
     static Future<List<dynamic>?> fetchConversationHistory(String sessionId) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/conversation-messages/$sessionId');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         // Assuming the API returns an object with a "messages" key.
         final data = jsonDecode(response.body);
@@ -238,16 +242,11 @@ class AuthService {
   }
 
   static Future<Map<String, dynamic>?> generateReport(String requestId) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/generate-report/$requestId');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // Expecting a JSON object with an "html" field.
+        return jsonDecode(response.body); // Expecting a JSON object with an "html" and "chart_images" field.
       } else {
         print('Generate report failed with status: ${response.statusCode}');
         return null;
@@ -258,12 +257,7 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>?> updateStructuredReport(
-      String originalHtml,
-      String? generalInstruction,
-      List<Map<String, dynamic>>? specificInstructions) async {
-    final token = await getToken();
-    if (token == null) return null;
+  static Future<Map<String, dynamic>?> updateStructuredReport(String originalHtml, String? generalInstruction, List<Map<String, dynamic>>? specificInstructions) async {
     final url = Uri.parse('$_baseUrl/update_strutured_report');
     final body = jsonEncode({
       "originalHtml": originalHtml,
@@ -273,7 +267,6 @@ class AuthService {
     try {
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: body,
       );
       if (response.statusCode == 200) {
@@ -289,14 +282,11 @@ class AuthService {
   }
 
   static Future<Uint8List?> downloadPdfReport(String htmlContent) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get_pdf_report');
     
     // Send a POST request with the HTML content in the body.
     final response = await _client.post(
       url,
-      headers: {'Authorization': 'Bearer $token'},
       body: jsonEncode({'html': htmlContent}),
     );
     
@@ -310,14 +300,9 @@ class AuthService {
   }
 
   static Future<Map<String, dynamic>?> getCompanyHealth() async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get-company-health');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'}
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
@@ -332,14 +317,9 @@ class AuthService {
 
   // Get all users (excluding the admin)
   static Future<List<dynamic>?> getUsers() async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get-users');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         // Decode the response and filter out the admin user if needed.
         List<dynamic> users = jsonDecode(response.body);
@@ -358,13 +338,10 @@ class AuthService {
 
   // Create a new user
   static Future<Map<String, dynamic>?> createUser(String name, String email, String password, String role) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/create-user');
     try {
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: jsonEncode({
           'name': name,
           'email': email,
@@ -384,14 +361,29 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>?> setSqlDatabase(Map<String, dynamic> payload) async {
+  static Future<Map<String, dynamic>?> getSqlDatabase() async {
     final token = await getToken();
     if (token == null) return null;
+    final url = Uri.parse('$_baseUrl/get-sql-database');
+    try {
+      final response = await _client.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("getSqlDatabase failed with status: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("Error during getSqlDatabase: $e");
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> setSqlDatabase(Map<String, dynamic> payload) async {
     final url = Uri.parse('$_baseUrl/set-sql-database');
     try {
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: jsonEncode(payload),
       );
       if (response.statusCode == 200) {
@@ -408,14 +400,9 @@ class AuthService {
 
   /// Fetches all table access levels.
   static Future<List<dynamic>?> getTablesAccessLevels() async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get-table-access-level');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       } else {
@@ -430,13 +417,10 @@ class AuthService {
 
   /// Updates the access level of a specific table.
   static Future<Map<String, dynamic>?> updateTableAccessLevel(String tableName, String accessLevel) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/update-table-access-level');
     try {
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: jsonEncode({
           'table_name': tableName,
           'access_level': accessLevel,
@@ -455,14 +439,9 @@ class AuthService {
   }
 
   static Future<List<dynamic>?> getDocumentAccessLevels() async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/get-document-access-level');
     try {
-      final response = await _client.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _client.get(url);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       } else {
@@ -477,13 +456,10 @@ class AuthService {
 
   /// Updates the access level of a document.
   static Future<Map<String, dynamic>?> updateDocumentAccessLevel(String docId, String accessLevel) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/update-document-access-level');
     try {
       final response = await _client.post(
         url,
-        headers: {'Authorization': 'Bearer $token'},
         body: jsonEncode({
           'doc_id': docId,
           'access_level': accessLevel,
@@ -503,17 +479,12 @@ class AuthService {
 
   /// Processes (uploads) a PDF file for processing.
   static Future<Map<String, dynamic>?> processPdf(File pdfFile, bool premiumMode) async {
-    final token = await getToken();
-    if (token == null) return null;
     final url = Uri.parse('$_baseUrl/process-pdf');
     
     try {
       // Create a multipart request
       var request = http.MultipartRequest('POST', url);
-      
-      // Add authorization header - just the token since ApiClient will add X-API-Key
-      request.headers['Authorization'] = 'Bearer $token';
-      
+            
       // Add the PDF file
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -545,9 +516,6 @@ class AuthService {
   }
 
   static Future<Map<String, dynamic>?> processWebsite(String urls, bool headless) async {
-    final token = await getToken();
-    if (token == null) return null;
-
     final url = Uri.parse('$_baseUrl/process-website');
     final payload = jsonEncode({"urls": [urls], "headless": headless});
 
@@ -556,10 +524,6 @@ class AuthService {
     try {
       final response = await _client.post(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json'
-        },
         body: payload,
       );
 
@@ -577,17 +541,11 @@ class AuthService {
     }
   }
 
- static Future<Map<String, dynamic>?> setLLMApiKey(Map<String, dynamic> payload) async {
-    final token = await getToken();
-    if (token == null) return null;
+  static Future<Map<String, dynamic>?> setLLMApiKey(Map<String, dynamic> payload) async {
     final url = Uri.parse('$_baseUrl/set-llm-api-key');
     try {
       final response = await _client.post(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(payload),
       );
       if (response.statusCode == 200) {
@@ -598,6 +556,23 @@ class AuthService {
       }
     } catch (e) {
       print("Error during setLLMApiKey: $e");
+      return null;
+    }
+  }
+
+  // New method to get the existing LLM configuration.
+  static Future<Map<String, dynamic>?> getLLMApiKey() async {
+    final url = Uri.parse('$_baseUrl/get-llm-api-key');
+    try {
+      final response = await _client.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("getLLMApiKey failed with status: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("Error during getLLMApiKey: $e");
       return null;
     }
   }

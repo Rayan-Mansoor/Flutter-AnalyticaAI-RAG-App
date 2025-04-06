@@ -397,6 +397,14 @@ Widget _buildDrawer() {
     );
   }
 
+  void printInChunks(String text, {int chunkSize = 800}) {
+  final pattern = RegExp('.{1,$chunkSize}', dotAll: true);
+  for (final match in pattern.allMatches(text)) {
+    print(match.group(0));
+  }
+}
+
+
   // Generate report and display in overlay.
   Future<void> _generateReport() async {
     if (_lastRequestId == null) {
@@ -405,16 +413,22 @@ Widget _buildDrawer() {
       return;
     }
     final reportResponse = await AuthService.generateReport(_lastRequestId!);
-    if (reportResponse != null && reportResponse['html'] != null) {
-      final String reportHtml = reportResponse['html'];
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              ReportOverlay(initialHtml: reportHtml, requestId: _lastRequestId!),
+  // After receiving your API response
+  if (reportResponse != null && reportResponse['html'] != null) {
+    String reportHtml = reportResponse['html'];
+    printInChunks(reportHtml);
+
+    // Now push the updated HTML to your ReportOverlay widget
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportOverlay(
+          initialHtml: reportHtml,
+          requestId: _lastRequestId!,
         ),
-      );
-    } else {
+      ),
+    );
+  } else {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Failed to generate report.')));
     }

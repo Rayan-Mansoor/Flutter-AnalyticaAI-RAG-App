@@ -60,10 +60,13 @@ class _ManageSqlScreenState extends State<ManageSqlScreen> {
   final _supabaseUrlController = TextEditingController();
   final _supabaseKeyController = TextEditingController();
 
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
     _fetchTableDetails();
+    _loadSqlDatabaseConfig();
   }
 
   Future<void> _fetchTableDetails() async {
@@ -74,9 +77,56 @@ class _ManageSqlScreenState extends State<ManageSqlScreen> {
         _tables = data.map<TableDetail>((json) => TableDetail.fromJson(json)).toList();
       });
     } catch (e) {
-      // Handle errors, e.g., show a snackbar or log the error
       print("Error fetching table details: $e");
     }
+  }
+
+  Future<void> _loadSqlDatabaseConfig() async {
+    final response = await AuthService.getSqlDatabase();
+    if (response != null && response['status'] == 'success') {
+      final data = response['data'];
+      // data contains 'type' and 'config'
+      final String dbType = data['type'];
+      setState(() {
+        // Map the returned type to our enum.
+        switch (dbType) {
+          case 'postgresql':
+            _selectedDbType = DatabaseType.postgresql;
+            break;
+          case 'mysql':
+            _selectedDbType = DatabaseType.mysql;
+            break;
+          case 'sqlserver':
+            _selectedDbType = DatabaseType.sqlserver;
+            break;
+          case 'supabase':
+            _selectedDbType = DatabaseType.supabase;
+            break;
+          default:
+            _selectedDbType = null;
+        }
+      });
+
+      final config = data['config'] as Map<String, dynamic>;
+      if (_selectedDbType == DatabaseType.supabase) {
+        _supabaseUrlController.text = config['supabase_url'] ?? '';
+        _supabaseKeyController.text = config['supabase_key'] ?? '';
+      } else {
+        _hostController.text = config['host'] ?? '';
+        _portController.text = config['port']?.toString() ?? '';
+        _dbnameController.text = config['dbname'] ?? '';
+        _usernameController.text = config['username'] ?? '';
+        _passwordController.text = config['password'] ?? '';
+        if (_selectedDbType == DatabaseType.sqlserver) {
+          _driverController.text = config['driver'] ?? '';
+        }
+      }
+    } else {
+      print("Failed to load SQL database configuration");
+    }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _updateTableAccess(String tableName, AccessLevel newAccess) async {
@@ -84,7 +134,6 @@ class _ManageSqlScreenState extends State<ManageSqlScreen> {
       // Call the Auth Service to update the table access level
       await AuthService.updateTableAccessLevel(tableName, newAccess.name);
     } catch (e) {
-      // Handle errors accordingly
       print("Error updating table access level: $e");
     }
   }
@@ -97,24 +146,31 @@ class _ManageSqlScreenState extends State<ManageSqlScreen> {
     };
 
     if (_selectedDbType == DatabaseType.supabase) {
-      payload['supabase_url'] = _supabaseUrlController.text;
-      payload['supabase_key'] = _supabaseKeyController.text;
+      payload['supabase_url'] = _supabaseUrlController.text.trim();
+      payload['supabase_key'] = _supabaseKeyController.text.trim();
     } else {
-      payload['host'] = _hostController.text;
-      payload['port'] = int.tryParse(_portController.text);
-      payload['dbname'] = _dbnameController.text;
-      payload['username'] = _usernameController.text;
-      payload['password'] = _passwordController.text;
+      payload['host'] = _hostController.text.trim();
+      payload['port'] = int.tryParse(_portController.text.trim());
+      payload['dbname'] = _dbnameController.text.trim();
+      payload['username'] = _usernameController.text.trim();
+      payload['password'] = _passwordController.text.trim();
       if (_selectedDbType == DatabaseType.sqlserver) {
-        payload['driver'] = _driverController.text;
+        payload['driver'] = _driverController.text.trim();
       }
     }
 
     try {
-      // Call the Auth Service to set SQL database credentials
-      await AuthService.setSqlDatabase(payload);
+      final response = await AuthService.setSqlDatabase(payload);
+      if (response != null && response['status'] == 'success') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'SQL Database updated successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update SQL database')),
+        );
+      }
     } catch (e) {
-      // Handle errors accordingly
       print("Error setting SQL database: $e");
     }
   }
@@ -257,25 +313,27 @@ class _ManageSqlScreenState extends State<ManageSqlScreen> {
       appBar: AppBar(
         title: const Text('Manage SQL Database'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Table Access Levels',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Table Access Levels',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  _buildTableList(),
+                  const Divider(height: 40),
+                  const Text(
+                    'SQL Database Connection',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  _buildDatabaseForm(),
+                ],
+              ),
             ),
-            _buildTableList(),
-            const Divider(height: 40),
-            const Text(
-              'SQL Database Connection',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            _buildDatabaseForm(),
-          ],
-        ),
-      ),
     );
   }
 }
