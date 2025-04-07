@@ -1,3 +1,4 @@
+import 'package:analytica_ai/utils/colors.dart';
 import 'package:analytica_ai/widgets/skeleton_chat_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -237,23 +238,34 @@ Widget _buildDrawer() {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.9,
+          maxWidth: MediaQuery.of(context).size.width * 0.85,
         ),
         child: Container(
-          margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          margin: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isUser ? Colors.blueAccent : Colors.grey[300],
+            // For user messages, use the primary theme color; for bot messages, retain the light grey.
+            color: isUser ? kPrimaryColor : Colors.grey[300],
             borderRadius: BorderRadius.only(
-              topLeft: isUser ? Radius.circular(12) : Radius.circular(0),
-              topRight: isUser ? Radius.circular(0) : Radius.circular(12),
-              bottomLeft: Radius.circular(12),
-              bottomRight: Radius.circular(12),
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+              bottomLeft: isUser ? Radius.circular(16) : Radius.circular(4),
+              bottomRight: isUser ? Radius.circular(4) : Radius.circular(16),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           child: Text(
             message['text'] ?? '',
-            style: TextStyle(color: isUser ? Colors.white : Colors.black),
+            style: TextStyle(
+              color: isUser ? Colors.white : Colors.black,
+              fontSize: 15,
+            ),
           ),
         ),
       ),
@@ -387,7 +399,7 @@ Widget _buildDrawer() {
                 IconButton(
                   icon: Icon(Icons.send),
                   onPressed: _sendMessage,
-                  color: Colors.blueAccent,
+                  color: kPrimaryColor,
                 ),
               ],
             ),
@@ -507,18 +519,19 @@ class DashboardChart extends StatelessWidget {
       List<BarChartGroupData> barGroups = [];
       for (int i = 1; i < csvData.length; i++) {
         final row = csvData[i];
-        final double value =
-            double.tryParse(row[valueIndex].toString()) ?? 0.0;
+        final double value = double.tryParse(row[valueIndex].toString()) ?? 0.0;
+        // Assign a vibrant color from colorfulPalette.
+        final Color rodColor = colorfulPalette[i % colorfulPalette.length];
+        
         barGroups.add(
           BarChartGroupData(
             x: i,
             barRods: [
               BarChartRodData(
                 toY: value,
-                color: Colors.blue,
+                color: rodColor,
                 width: 20,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(4)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
               )
             ],
             showingTooltipIndicators: [],
@@ -586,8 +599,7 @@ class DashboardChart extends StatelessWidget {
                 getTitlesWidget: (value, meta) {
                   return Text(
                     value.toInt().toString(),
-                    style: TextStyle(
-                        fontSize: 10, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   );
                 },
               ),
@@ -595,8 +607,7 @@ class DashboardChart extends StatelessWidget {
           ),
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
-              tooltipPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              tooltipPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               tooltipMargin: 8,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 String label = csvData[group.x.toInt()][labelIndex].toString();
@@ -624,8 +635,7 @@ class DashboardChart extends StatelessWidget {
       List<FlSpot> spots = [];
       for (int i = 1; i < csvData.length; i++) {
         final row = csvData[i];
-        final double value =
-            double.tryParse(row[valueIndex].toString()) ?? 0.0;
+        final double value = double.tryParse(row[valueIndex].toString()) ?? 0.0;
         spots.add(FlSpot(i.toDouble(), value));
       }
       chartWidget = LineChart(
@@ -634,8 +644,8 @@ class DashboardChart extends StatelessWidget {
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              barWidth: 3,
-              color: Colors.blue,
+              barWidth: 2,
+              color: Color(0xFF8B5CF6),
               dotData: FlDotData(show: true),
             ),
           ],
@@ -659,14 +669,24 @@ class DashboardChart extends StatelessWidget {
                   }
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w500),
+                    child: Transform.rotate(
+                      angle: -0.45,
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 60,
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                   );
                 },
-                reservedSize: 30,
+                reservedSize: 44,
               ),
             ),
             leftTitles: AxisTitles(
@@ -676,24 +696,45 @@ class DashboardChart extends StatelessWidget {
                 getTitlesWidget: (value, meta) {
                   return Text(
                     value.toInt().toString(),
-                    style: TextStyle(
-                        fontSize: 10, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   );
                 },
               ),
             ),
-            topTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
+        ),
+      );
+    } else if (chartType == 'pie') {
+      // Build a full pie chart.
+      List<PieChartSectionData> sections = [];
+      for (int i = 1; i < csvData.length; i++) {
+        final row = csvData[i];
+        final double value = double.tryParse(row[valueIndex].toString()) ?? 0.0;
+        // Assign a vibrant color from a colorful palette.
+        final Color sectionColor = colorfulPalette[i % colorfulPalette.length];
+        sections.add(
+          PieChartSectionData(
+            value: value,
+            color: sectionColor,
+            title: '', // Optionally, add a title or percentage.
+            radius: 50,
+          ),
+        );
+      }
+      chartWidget = PieChart(
+        PieChartData(
+          sections: sections,
+          sectionsSpace: 2,
+          centerSpaceRadius: 40,
+          borderData: FlBorderData(show: false),
         ),
       );
     } else {
       chartWidget = Center(child: Text("Chart type not supported"));
     }
+
 
     // When used in the chat, align left with a max width constraint.
     // For dashboard, center the chart with increased margins and no width constraint.

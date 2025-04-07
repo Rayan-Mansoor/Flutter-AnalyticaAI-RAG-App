@@ -50,7 +50,7 @@ class AuthService {
   static const _userInfoKey = 'user_info';
 
   // Define base URL for API requests.
-  static const String _baseUrl = 'http://192.168.0.101:8000/api/v1';
+  static const String _baseUrl = 'https://f385-154-192-0-55.ngrok-free.app/api/v1';
   static const String _apiKey = '123'; // Replace with your actual API key.
   static User? currentUser;
 

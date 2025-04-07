@@ -1,3 +1,4 @@
+import 'package:analytica_ai/utils/colors.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
@@ -50,69 +51,140 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // Email text field
-              TextFormField(
-                controller: emailController,
-                focusNode: emailFocusNode,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(labelText: 'Email'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter email';
-                  }
-                  if (!emailRegex.hasMatch(value)) {
-                    return 'Please enter a valid email address';
-                  }
-                  return null;
-                },
-                onFieldSubmitted: (_) {
-                  FocusScope.of(context).requestFocus(passwordFocusNode);
-                },
+      backgroundColor: Colors.white, // Light background for a modern look
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          "Login",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: kPrimaryColor,
+            fontSize: 24,
+          ),
+        ),
+        iconTheme: IconThemeData(color: kPrimaryColor),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 24.0),
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
               ),
-              // Password text field with visibility toggle and done action
-              TextFormField(
-                controller: passwordController,
-                focusNode: passwordFocusNode,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.go,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+              elevation: 6,
+              margin: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Email field
+                      TextFormField(
+                        controller: emailController,
+                        focusNode: emailFocusNode,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email, color: kPrimaryColor),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter email';
+                          }
+                          if (!emailRegex.hasMatch(value)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context)
+                              .requestFocus(passwordFocusNode);
+                        },
+                      ),
+                      SizedBox(height: 20.0),
+                      // Password field
+                      TextFormField(
+                        controller: passwordController,
+                        focusNode: passwordFocusNode,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.go,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock, color: kPrimaryColor),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: kPrimaryColor,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? 'Please enter password'
+                            : null,
+                        onFieldSubmitted: (_) => _login(),
+                      ),
+                      SizedBox(height: 24.0),
+                      isLoading
+                          ? CircularProgressIndicator()
+                          : ElevatedButton(
+                              onPressed: _login,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                ),
+                              ),
+                              child: Text(
+                                "Login",
+                                style: TextStyle(fontSize: 18),
+                              ),
+                            ),
+                      SizedBox(height: 16.0),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/signup');
+                        },
+                        child: Text(
+                          "Don't have an account? Sign Up",
+                          style: TextStyle(
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.bold,
+                            color: kPrimaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? 'Please enter password' : null,
-                onFieldSubmitted: (_) {
-                  _login();
-                },
               ),
-              SizedBox(height: 20),
-              isLoading
-                  ? CircularProgressIndicator()
-                  : ElevatedButton(onPressed: _login, child: Text("Login")),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/signup');
-                },
-                child: Text("Don't have an account? Sign Up"),
-              )
-            ],
+            ),
           ),
         ),
       ),
